@@ -1,37 +1,67 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"time"
+
 	"github.com/yusaint/gostream/arrays"
-	"github.com/yusaint/gostream/gostream-contrib/filestream"
 	"github.com/yusaint/gostream/gostream-contrib/mq"
 	"github.com/yusaint/gostream/stream"
 	"github.com/yusaint/gostream/stream/functions"
 	"github.com/yusaint/gostream/stream/ops"
-	"os"
-	"time"
 )
 
 func main() {
-	dd()
+	bb()
 }
 
 var IntLte = ops.NewSort(functions.IntLte)
 
+type User struct {
+	Country string
+	Name    string
+}
+
+var elems = []*User{
+	{
+		Country: "China",
+		Name:    "1",
+	},
+	{
+		Country: "China",
+		Name:    "2",
+	},
+	{
+		Country: "USA",
+		Name:    "3",
+	},
+}
+
 func bb() {
-	stream := stream.Stream[int](arrays.Of(1, 2, 3))
-	sum, err := stream.
-		Filter(ops.Filter(func(t int) (bool, error) { return t > -1, errors.New("aaaaa") })).
-		Distinct().
-		Skip(0).Limit(30).
-		Sort(IntLte).
-		Reduce(ops.IntSum)
-	if err != nil {
-		fmt.Println("!!!", err.Error(), sum)
-	} else {
-		fmt.Println(sum)
+	stream := stream.Stream[*User](arrays.Of(elems...))
+
+	var reduceFunc = func(output []string, e1 []*User) ([]string, error) {
+		for _, v := range e1 {
+			output = append(output, v.Name)
+		}
+		return output, nil
 	}
+	_ = reduceFunc
+
+	var _ = func(m map[string][]*User) ([]*User, error) {
+		result := make([]*User, 0)
+		for _, values := range m {
+			result = append(result, values...)
+		}
+		return result, nil
+	}
+	stream.
+		Parallel().
+		Group(ops.NewGroup(func(u *User) string {
+			return u.Country
+		})).Foreach(ops.PrintJson)
+	//Reduce(ops.NewReduce([]string{}, reduceFunc))
+	//fmt.Println(result, err)
 }
 
 type Record struct {
@@ -41,19 +71,7 @@ type Record struct {
 }
 
 func cc() {
-	f, err := os.Open("./demo.csv")
-	if err != nil {
-		panic(err)
-	}
-	stream.Stream[[]string](filestream.NewCsvFileStream(f)).Map(ops.Map(func(row []string) (*Record, error) {
-		return &Record{
-			R1: row[0],
-			R2: row[1],
-			R3: row[2],
-		}, nil
-	})).Filter(ops.Filter(func(r *Record) (bool, error) {
-		return r.R1 == "3", nil
-	})).Foreach(ops.Print)
+
 }
 
 type XX struct {
