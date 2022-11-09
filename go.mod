@@ -1,4 +1,4 @@
-module github.com/yusaint/gostream/gostream-contrib
+module github.com/yusaint/gostream-contrib
 
 go 1.19
 
