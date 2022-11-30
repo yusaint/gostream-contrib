@@ -1,9 +1,14 @@
 package filestream
 
 import (
+	"bytes"
 	"encoding/csv"
-	"github.com/yusaint/gostream/generic"
+	"io"
+	"net/http"
 	"os"
+	"time"
+
+	"github.com/yusaint/gostream/generic"
 )
 
 type CsvFileStream struct {
@@ -11,11 +16,34 @@ type CsvFileStream struct {
 	reader *csv.Reader
 }
 
-func NewCsvFileStream(file *os.File) *CsvFileStream {
+func NewCsvFileStreamByFile(file *os.File) *CsvFileStream {
 	return &CsvFileStream{
 		file:   file,
 		reader: csv.NewReader(file),
 	}
+}
+
+func NewCsvFileStreamByUrl(url string) (*CsvFileStream, error) {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return &CsvFileStream{
+		reader: csv.NewReader(bytes.NewReader(buf)),
+	}, nil
 }
 
 func (c *CsvFileStream) EstimatedSize() int64 {
