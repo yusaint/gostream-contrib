@@ -23,9 +23,27 @@ func NewCsvFileStreamByFile(file *os.File) *CsvFileStream {
 	}
 }
 
-func NewCsvFileStreamByUrl(url string) (*CsvFileStream, error) {
+type CsvFileStreamCfg struct {
+	DownloadTimeout int64
+}
+
+type CsvFileStreamOption func(cfg *CsvFileStreamCfg)
+
+func WithDownloadTimeout(timeout int64) CsvFileStreamOption {
+	return func(cfg *CsvFileStreamCfg) {
+		cfg.DownloadTimeout = timeout
+	}
+}
+
+func NewCsvFileStreamByUrl(url string, options ...CsvFileStreamOption) (*CsvFileStream, error) {
+	defaultCfg := CsvFileStreamCfg{
+		DownloadTimeout: 5,
+	}
+	for _, opt := range options {
+		opt(&defaultCfg)
+	}
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: time.Duration(defaultCfg.DownloadTimeout) * time.Second,
 	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -65,6 +83,9 @@ func (c *CsvFileStream) ForeachRemaining(sink generic.Consumer) error {
 
 func (c *CsvFileStream) TryAdvance(sink generic.Consumer) (bool, error) {
 	if record, err := c.reader.Read(); err != nil {
+		if err == io.EOF {
+			return false, nil
+		}
 		return false, err
 	} else {
 		return true, sink.Accept(record)
